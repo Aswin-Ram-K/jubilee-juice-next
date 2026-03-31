@@ -5,16 +5,18 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: jubilee
-      POSTGRES_PASSWORD: jubilee_secret
-      POSTGRES_DB: jubilee_juice
+      POSTGRES_USER: ${POSTGRES_USER:-jubilee}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.local}
+      POSTGRES_DB: ${POSTGRES_DB:-jubilee_juice}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jubilee -d jubilee_juice"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jubilee} -d ${POSTGRES_DB:-jubilee_juice}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - backend
 
   app:
     build:
@@ -29,13 +31,15 @@ services:
     env_file:
       - .env.local
     environment:
-      DATABASE_URL: postgresql://jubilee:jubilee_secret@db:5432/jubilee_juice?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-jubilee}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-jubilee_juice}?schema=public
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - backend
 
   pgadmin:
     image: dpage/pgadmin4
@@ -43,11 +47,19 @@ services:
     ports:
       - "5050:80"
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@jubileejuice.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@jubileejuice.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - backend
+    profiles:
+      - tools
 
 volumes:
   pgdata:
+
+networks:
+  backend:
+    driver: bridge

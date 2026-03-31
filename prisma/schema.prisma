@@ -102,7 +102,8 @@ model MenuItem {
 model CategoryItem {
   categoryId String
   menuItemId String
-  sortOrder  Int    @default(0)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
 
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)

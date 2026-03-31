@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: deps
-    command: pnpm dev
+    command: sh -c "pnpm exec prisma generate && pnpm dev"
     ports:
       - "3000:3000"
     volumes:
@@ -13,7 +13,12 @@ services:
       - ./prisma:/app/prisma
       - ./next.config.ts:/app/next.config.ts
       - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./.env.local:/app/.env.local
       - /app/node_modules
       - /app/.next
     environment:
       NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: 1
+    networks:
+      - backend

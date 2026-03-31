@@ -21,6 +21,11 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=()",
   },
+  {
+    key: "Content-Security-Policy",
+    value:
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://api.fontshare.com https://fonts.googleapis.com; font-src 'self' https://api.fontshare.com https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com https://jubileejuice.com; connect-src 'self'; frame-src https://www.google.com",
+  },
 ];
 
 // Use "export" for GitHub Pages (static), "standalone" for Docker/Vercel (server)
