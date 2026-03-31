@@ -23,10 +23,15 @@ const securityHeaders = [
   },
 ];
 
+// Use "export" for GitHub Pages (static), "standalone" for Docker/Vercel (server)
+const isStaticExport = process.env.NEXT_OUTPUT === "export";
+
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: isStaticExport ? "export" : "standalone",
+  basePath: isStaticExport ? "/jubilee-juice-next" : "",
 
   images: {
+    unoptimized: isStaticExport,
     remotePatterns: [
       {
         protocol: "https",
@@ -40,6 +45,7 @@ const nextConfig: NextConfig = {
   },
 
   async headers() {
+    if (isStaticExport) return [];
     return [
       {
         source: "/(.*)",
