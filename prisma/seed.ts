@@ -1,0 +1,316 @@
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+
+const prisma = new PrismaClient();
+
+// ---------------------------------------------------------------------------
+// Badge mapping
+// ---------------------------------------------------------------------------
+
+type RawBadge = 'vegan' | 'vegetarian' | 'gf' | 'high-protein' | 'dairy-free';
+
+const BADGE_MAP: Record<RawBadge, string> = {
+  vegan: 'vegan',
+  vegetarian: 'vegetarian',
+  gf: 'gf',
+  'high-protein': 'high_protein',
+  'dairy-free': 'dairy_free',
+} as const;
+
+function mapBadge(badge: string): string {
+  return BADGE_MAP[badge as RawBadge] ?? badge;
+}
+
+// ---------------------------------------------------------------------------
+// Menu data (inlined from the original Astro project)
+// ---------------------------------------------------------------------------
+
+interface RawItem {
+  name: string;
+  description: string;
+  price: number;
+  badges: string[];
+  popular?: boolean;
+}
+
+interface RawCategory {
+  name: string;
+  slug: string;
+  description: string;
+  icon: string;
+  items: RawItem[];
+}
+
+const menuData: RawCategory[] = [
+  {
+    name: 'Craft Burgers',
+    slug: 'burgers',
+    description: 'Handcrafted burgers made with premium ingredients on fresh-baked buns.',
+    icon: '🍔',
+    items: [
+      { name: 'All American Burger', description: 'American cheese, grilled onions, mayo, ketchup, pickles', price: 10.99, badges: [] },
+      { name: 'Mushroom Burger', description: 'Grilled mushrooms, Swiss cheese, lettuce, tomato, dressing', price: 11.99, badges: [] },
+      { name: 'Cheddar Bacon Burger', description: 'Grilled onions, lettuce, tomato, dressing', price: 12.49, badges: [] },
+      { name: 'Avocado Burger', description: 'Swiss cheese, lettuce, tomato, dressing', price: 12.99, badges: [] },
+      { name: 'Salmon Burger', description: 'Fresh spinach, tomato, mayo, Kaiser roll', price: 13.99, badges: ['high-protein'] },
+      { name: 'Turkey Burger', description: 'American cheese, lettuce, tomato, dressing', price: 11.49, badges: [] },
+      { name: 'Veggie Burger', description: 'Lettuce, tomato, dressing', price: 10.49, badges: ['vegetarian'] },
+    ],
+  },
+  {
+    name: 'Chicken Sandwiches',
+    slug: 'chicken',
+    description: 'Juicy marinated chicken sandwiches — grilled, sauced, and stacked.',
+    icon: '🍗',
+    items: [
+      { name: 'Marinated Chicken', description: 'Lettuce, tomato, dressing', price: 10.99, badges: [] },
+      { name: 'Cheddar Bacon Chicken', description: 'Grilled onions, lettuce, tomato, dressing', price: 12.49, badges: [] },
+      { name: 'Jubilee Chicken', description: 'Goat cheese, lettuce, tomato, dressing', price: 12.99, badges: [], popular: true },
+      { name: 'Chicken Malibu', description: 'Smoked ham, melted Swiss cheese, lettuce, tomato, dressing', price: 13.49, badges: [] },
+      { name: 'Mushroom Chicken', description: 'Grilled mushrooms, melted provolone, lettuce, tomato, dressing', price: 12.49, badges: [] },
+      { name: 'Buffalo Chicken', description: 'Smothered in hot sauce, blue cheese, lettuce, tomato, dressing', price: 12.49, badges: [], popular: true },
+      { name: 'Honey Mustard Chicken', description: 'Smothered in honey mustard, lettuce, tomato, dressing', price: 11.99, badges: [] },
+      { name: 'Philly Chicken', description: 'Grilled onions, mushrooms, peppers, provolone, garlic bread', price: 13.49, badges: [] },
+      { name: 'Chicken Divine', description: 'Sauteed in white wine, grilled onions, mushrooms, peppers, tomato, provolone, pita', price: 13.99, badges: [] },
+      { name: 'Grilled Chicken Quesadilla', description: 'Charred chicken and Chihuahua cheese in a spinach tortilla, served with fresh salsa and sour cream', price: 12.99, badges: [] },
+    ],
+  },
+  {
+    name: 'Fresh Fruit Smoothies',
+    slug: 'smoothies',
+    description: 'Blended fresh daily with real fruit, sherbet, and natural juices.',
+    icon: '🥤',
+    items: [
+      { name: 'Strawberry Heaven', description: 'Strawberries, bananas, frozen yogurt, apple juice', price: 7.99, badges: [], popular: true },
+      { name: 'Blueberry Banana', description: 'Blueberries, bananas, frozen yogurt, raspberry sherbet, apple juice', price: 7.99, badges: [] },
+      { name: 'Mango Madness', description: 'Mango, pineapple sherbet, mango juice', price: 7.99, badges: ['dairy-free', 'vegan'] },
+      { name: 'Cranberry Pleasure', description: 'Strawberries, blueberries, yogurt, raspberry sherbet, cranberry juice', price: 7.99, badges: [] },
+      { name: 'Raspberry Mania', description: 'Raspberries, bananas, raspberry sherbet, raspberry juice', price: 7.99, badges: [] },
+      { name: 'Peach Refresher', description: 'Peaches, bananas, orange sherbet, peach juice', price: 7.99, badges: [] },
+      { name: 'Pineapple Craze', description: 'Strawberries, bananas, pineapple yogurt, pineapple sherbet & juice', price: 7.99, badges: [] },
+      { name: 'Citrus Nirvana', description: 'Strawberries, bananas, frozen yogurt, orange juice', price: 7.99, badges: [] },
+      { name: 'Orange Berry Dream', description: 'Strawberries, blueberries, pineapple sherbet, orange juice', price: 7.99, badges: [] },
+      { name: 'Razzleberry', description: 'Strawberries, bananas, orange sherbet, raspberry juice', price: 7.99, badges: [] },
+      { name: 'Tropical Passion', description: 'Strawberries, peaches, orange sherbet, mango juice', price: 7.99, badges: ['dairy-free'] },
+      { name: 'Pina Colada', description: 'Pineapple, bananas, coconut, yogurt, pineapple sherbet & juice', price: 8.49, badges: [] },
+      { name: "Nature's Citric Blend", description: 'Strawberries, bananas, orange sherbet, pineapple, orange juice', price: 7.99, badges: [] },
+      { name: 'Fruit Divine', description: 'Blueberries, bananas, strawberries, pineapple sherbet, peach juice', price: 8.49, badges: [] },
+      { name: 'Fruitini', description: 'Pineapple, bananas, pineapple sherbet, orange sherbet, apple juice', price: 7.99, badges: [] },
+      { name: 'Cold Fighter', description: 'Peaches, bananas, orange sherbet & orange juice', price: 7.99, badges: [] },
+    ],
+  },
+  {
+    name: 'Seasonal Salads',
+    slug: 'salads',
+    description: 'Crisp romaine lettuce with seasonal ingredients. Add protein: Chicken, Jumbo Shrimp, Ribeye Steak, Atlantic Salmon, or Atlantic Whitefish.',
+    icon: '🥗',
+    items: [
+      { name: 'Caesar', description: 'Shaved Parmesan, organic eggs, housemade caesar dressing', price: 9.99, badges: [] },
+      { name: 'Garden', description: 'Tomato, Kalamata olives, feta, pepperoncini, creamy vinaigrette', price: 9.99, badges: ['vegetarian'] },
+      { name: 'Mediterranean', description: 'Tomato, Kalamata olives, Greek feta, pepperoncini, creamy vinaigrette', price: 10.49, badges: ['vegetarian'] },
+      { name: 'Jubilee', description: 'Pears, walnuts, blue cheese, raspberry vinaigrette', price: 11.49, badges: [], popular: true },
+      { name: 'BBQ Baja', description: 'Avocado, corn, black beans, tomato, BBQ dressing', price: 11.49, badges: ['vegan'] },
+      { name: 'Spinach & Beets', description: 'Baby spinach, beets, red onion, blue cheese, organic eggs, candied walnuts, balsamic vinaigrette', price: 11.99, badges: [] },
+      { name: 'Spinach & Strawberry', description: 'Baby spinach, strawberries, goat cheese, sliced almonds, raspberry vinaigrette', price: 11.49, badges: [] },
+      { name: 'Dried Cherry & Gorgonzola', description: 'Granny Smith apples, dried cherries, red onions, crumbled Gorgonzola, candied walnuts, raspberry vinaigrette', price: 12.49, badges: [] },
+    ],
+  },
+  {
+    name: 'Veggie Victory',
+    slug: 'veggie',
+    description: 'Plant-forward options that never sacrifice flavor.',
+    icon: '🌿',
+    items: [
+      { name: 'Veggie Burger', description: 'Lettuce, tomato, and dressing on a brioche bun', price: 10.49, badges: ['vegetarian'] },
+      { name: 'Charred Asparagus', description: 'Goat cheese, lettuce, tomato and dressing on French bread', price: 11.49, badges: ['vegetarian'] },
+      { name: 'Charred Portabella', description: 'Goat cheese, lettuce, tomato, and dressing on French bread', price: 11.49, badges: ['vegetarian'] },
+      { name: 'Mixed Veggie Wrap', description: 'Grilled asparagus, portabella, eggplant, zucchini, red peppers, Greek feta, lettuce, tomato, wrapped in a spinach tortilla', price: 12.49, badges: ['vegetarian'], popular: true },
+      { name: 'Portabella Quesadilla', description: 'Portabella and Chihuahua cheese on spinach tortilla, served with fresh salsa and sour cream', price: 11.99, badges: ['vegetarian'] },
+      { name: 'Avocado Grilled Cheese', description: 'Avocado, Swiss cheese and provolone on multigrain bread', price: 10.99, badges: ['vegetarian'] },
+    ],
+  },
+  {
+    name: 'From The Sea',
+    slug: 'seafood',
+    description: 'Ocean-fresh fillets and jumbo shrimp — simply seasoned and beautifully prepared.',
+    icon: '🐟',
+    items: [
+      { name: 'Salmon Burger', description: 'Fresh spinach, tomato, and mayo on Kaiser roll', price: 13.99, badges: ['high-protein'] },
+      { name: 'Shrimp Quesadilla', description: 'Jumbo shrimp & Chihuahua cheese on spinach tortilla, served with fresh salsa and sour cream', price: 14.49, badges: [] },
+      { name: 'Grilled Atlantic Whitefish', description: 'Ocean fresh fillet with herb-infused olive oil and lemon juice, served on French bread with a side salad', price: 14.99, badges: ['high-protein'] },
+      { name: 'Grilled Atlantic Salmon', description: 'Ocean fresh fillet with herb-infused olive oil and lemon juice, served on French bread with a side salad', price: 16.99, badges: ['high-protein'], popular: true },
+    ],
+  },
+  {
+    name: 'Artisanal Deli',
+    slug: 'deli',
+    description: 'Classic deli sandwiches with premium cold cuts on fresh French bread.',
+    icon: '🥖',
+    items: [
+      { name: 'Italian Club', description: 'Capicola, genoa salami, smoked ham, provolone, lettuce, and tomato on French bread', price: 12.49, badges: [] },
+      { name: 'Smoked Ham & Swiss', description: 'Lettuce, tomato, dressing on French bread', price: 10.99, badges: [] },
+    ],
+  },
+  {
+    name: 'Signature Sides',
+    slug: 'sides',
+    description: 'The perfect companions to any meal — from crispy fries to housemade hummus.',
+    icon: '🍟',
+    items: [
+      { name: 'Waffle Cut Fries', description: 'Classic waffle-cut style', price: 4.99, badges: [] },
+      { name: 'Cheddar Waffle Cut Fries', description: "Wisconsin Merkt's cheddar cup", price: 6.49, badges: [] },
+      { name: 'Onion Rings', description: 'Steak-cut', price: 5.49, badges: [] },
+      { name: "Gio's Homemade Soup", description: 'Two choices daily — meat or veggie', price: 5.99, badges: [] },
+      { name: 'Baked Potato', description: 'Choose: regular, sweet, cheddar & broccoli, cheddar & bacon, or bacon & sour cream', price: 5.99, badges: [] },
+      { name: 'Spanakopita', description: 'Fresh spinach, leeks, onions, dill, Greek feta wrapped in filo, served with a side of greens', price: 7.99, badges: ['vegetarian'] },
+      { name: 'Grilled Vegetables', description: 'Choose from asparagus, portabella, eggplant, zucchini, yellow squash, or red pepper', price: 5.99, badges: ['vegan', 'gf'] },
+      { name: 'Mixed Grilled Vegetables', description: 'All available grilled vegetable options', price: 7.99, badges: ['vegan', 'gf'] },
+      { name: 'Garlic Bread', description: 'House-made', price: 3.99, badges: [] },
+      { name: 'Kettle Chips', description: 'Assorted flavors', price: 2.99, badges: [] },
+      { name: 'Housemade Hummus', description: 'Served with pita & vegetable crudite', price: 7.99, badges: ['vegan'] },
+      { name: 'Fresh Guacamole', description: 'Served with tortilla chips', price: 7.99, badges: ['vegan', 'gf'] },
+      { name: 'Fresh Salsa', description: 'Served with tortilla chips', price: 5.99, badges: ['vegan', 'gf'] },
+      { name: 'Cheese Quesadilla', description: 'Chihuahua cheese, spinach tortilla, fresh salsa and sour cream', price: 8.99, badges: ['vegetarian'] },
+      { name: "Wisconsin Merkt's Cheddar Cup", description: 'Premium cheddar dipping sauce', price: 2.99, badges: [] },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Main seed function
+// ---------------------------------------------------------------------------
+
+async function main(): Promise<void> {
+  console.log('Seeding database...');
+
+  for (let catIndex = 0; catIndex < menuData.length; catIndex++) {
+    const rawCat = menuData[catIndex];
+
+    const category = await prisma.category.upsert({
+      where: { slug: rawCat.slug },
+      update: {
+        name: rawCat.name,
+        description: rawCat.description,
+        icon: rawCat.icon,
+        sortOrder: catIndex,
+        isActive: true,
+      },
+      create: {
+        name: rawCat.name,
+        slug: rawCat.slug,
+        description: rawCat.description,
+        icon: rawCat.icon,
+        sortOrder: catIndex,
+        isActive: true,
+      },
+    });
+
+    console.log(`  Category: ${category.name}`);
+
+    for (let itemIndex = 0; itemIndex < rawCat.items.length; itemIndex++) {
+      const rawItem = rawCat.items[itemIndex];
+      const mappedBadges = rawItem.badges.map(mapBadge);
+
+      // Items with the same name share a single MenuItem record across categories
+      const existingItem = await prisma.menuItem.findFirst({
+        where: { name: rawItem.name },
+      });
+
+      let menuItem;
+      if (existingItem) {
+        menuItem = existingItem;
+      } else {
+        menuItem = await prisma.menuItem.create({
+          data: {
+            name: rawItem.name,
+            description: rawItem.description,
+            priceInCents: Math.round(rawItem.price * 100),
+            badges: { set: mappedBadges as never[] },
+            isPopular: rawItem.popular ?? false,
+            isAvailable: true,
+            sortOrder: itemIndex,
+          },
+        });
+      }
+
+      await prisma.categoryItem.upsert({
+        where: {
+          categoryId_menuItemId: {
+            categoryId: category.id,
+            menuItemId: menuItem.id,
+          },
+        },
+        update: { sortOrder: itemIndex },
+        create: {
+          categoryId: category.id,
+          menuItemId: menuItem.id,
+          sortOrder: itemIndex,
+        },
+      });
+    }
+  }
+
+  // Default SiteConfig
+  await prisma.siteConfig.upsert({
+    where: { singleton: true },
+    update: {},
+    create: {
+      singleton: true,
+      restaurantName: 'Jubilee Juice & Grill',
+      address: '140 N Halsted St., Chicago, IL 60661',
+      phone: '(312) 491-8500',
+      email: 'jubileejuiceandgrill@gmail.com',
+      taxRatePercent: 0.1025,
+      deliveryFeeInCents: 399,
+      freeDeliveryThresholdInCents: 3000,
+      minimumOrderInCents: 0,
+      lat: 41.8858,
+      lng: -87.6478,
+      socialLinks: { facebook: null, instagram: null, yelp: null },
+      deliveryLinks: { ubereats: null, doordash: null },
+      businessHours: {
+        sun: { open: '10:00', close: '22:00' },
+        mon: { open: '07:00', close: '22:00' },
+        tue: { open: '07:00', close: '00:00' },
+        wed: { open: '07:00', close: '00:00' },
+        thu: { open: '07:00', close: '00:00' },
+        fri: { open: '07:00', close: '01:00' },
+        sat: { open: '09:00', close: '01:00' },
+      },
+      isAcceptingOrders: true,
+      isAcceptingDelivery: true,
+      isAcceptingPickup: true,
+      announcementText: null,
+      announcementActive: false,
+    },
+  });
+
+  console.log('  SiteConfig upserted');
+
+  // Default admin user (dev only)
+  const passwordHash = await bcrypt.hash('admin123', 12);
+  await prisma.user.upsert({
+    where: { email: 'admin@jubileejuice.com' },
+    update: {},
+    create: {
+      email: 'admin@jubileejuice.com',
+      passwordHash,
+      firstName: 'Admin',
+      lastName: 'User',
+      role: 'owner',
+      isActive: true,
+    },
+  });
+
+  console.log('  Admin user upserted (email: admin@jubileejuice.com)');
+  console.log('Done.');
+}
+
+main()
+  .catch((err: unknown) => {
+    console.error(err);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

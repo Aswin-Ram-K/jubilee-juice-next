@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.github
+.env*
+docker-compose*
+Dockerfile
+coverage
+playwright-report
+test-results
+*.md
+!README.md
+.vscode
+.idea
+.DS_Store

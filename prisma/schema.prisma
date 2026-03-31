@@ -1,0 +1,290 @@
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum DietaryBadge {
+  vegan
+  vegetarian
+  gf
+  high_protein
+  dairy_free
+}
+
+enum OrderStatus {
+  pending
+  confirmed
+  preparing
+  ready
+  completed
+  cancelled
+  refunded
+}
+
+enum FulfillmentType {
+  pickup
+  delivery
+}
+
+enum PaymentStatus {
+  pending
+  authorized
+  captured
+  failed
+  refunded
+  partially_refunded
+}
+
+enum UserRole {
+  owner
+  staff
+}
+
+// ---------------------------------------------------------------------------
+// Category
+// ---------------------------------------------------------------------------
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  icon        String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categoryItems CategoryItem[]
+
+  @@map("categories")
+}
+
+// ---------------------------------------------------------------------------
+// MenuItem
+// ---------------------------------------------------------------------------
+
+model MenuItem {
+  id             String         @id @default(cuid())
+  name           String
+  description    String?
+  priceInCents   Int?
+  imageUrl       String?
+  badges         DietaryBadge[]
+  isPopular      Boolean        @default(false)
+  isAvailable    Boolean        @default(true)
+  sortOrder      Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  categoryItems CategoryItem[]
+  orderItems    OrderItem[]
+
+  @@index([isAvailable])
+  @@index([isPopular])
+  @@map("menu_items")
+}
+
+// ---------------------------------------------------------------------------
+// CategoryItem (join table)
+// ---------------------------------------------------------------------------
+
+model CategoryItem {
+  categoryId String
+  menuItemId String
+  sortOrder  Int    @default(0)
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@id([categoryId, menuItemId])
+  @@index([categoryId])
+  @@index([menuItemId])
+  @@map("category_items")
+}
+
+// ---------------------------------------------------------------------------
+// Customer
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  firstName        String?
+  lastName         String?
+  phone            String?
+  defaultAddress   String?
+  stripeCustomerId String?
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  orders Order[]
+
+  @@index([email])
+  @@index([stripeCustomerId])
+  @@map("customers")
+}
+
+// ---------------------------------------------------------------------------
+// Order
+// ---------------------------------------------------------------------------
+
+model Order {
+  id                     String          @id @default(cuid())
+  customerId             String?
+  status                 OrderStatus     @default(pending)
+  fulfillment            FulfillmentType @default(pickup)
+  deliveryAddress        String?
+  subtotalCents          Int
+  taxCents               Int
+  deliveryFeeCents       Int             @default(0)
+  tipCents               Int             @default(0)
+  discountCents          Int             @default(0)
+  totalCents             Int
+  taxRateSnapshot        Decimal         @db.Decimal(6, 4)
+  stripePaymentIntentId  String?
+  scheduledFor           DateTime?
+  specialInstructions    String?
+  estimatedReadyAt       DateTime?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  customer   Customer?        @relation(fields: [customerId], references: [id])
+  items      OrderItem[]
+  statusLogs OrderStatusLog[]
+  payment    Payment?
+
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([stripePaymentIntentId])
+  @@map("orders")
+}
+
+// ---------------------------------------------------------------------------
+// OrderItem
+// ---------------------------------------------------------------------------
+
+model OrderItem {
+  id                  String  @id @default(cuid())
+  orderId             String
+  menuItemId          String
+  itemNameSnapshot    String
+  unitPriceInCents    Int
+  quantity            Int
+  specialInstructions String?
+  createdAt           DateTime @default(now())
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+  @@index([menuItemId])
+  @@map("order_items")
+}
+
+// ---------------------------------------------------------------------------
+// OrderStatusLog
+// ---------------------------------------------------------------------------
+
+model OrderStatusLog {
+  id         String      @id @default(cuid())
+  orderId    String
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  changedBy  String?
+  note       String?
+  createdAt  DateTime    @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_status_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Payment
+// ---------------------------------------------------------------------------
+
+model Payment {
+  id                    String        @id @default(cuid())
+  orderId               String        @unique
+  stripePaymentIntentId String        @unique
+  stripeChargeId        String?
+  amountInCents         Int
+  refundedAmountInCents Int           @default(0)
+  currency              String        @default("usd")
+  status                PaymentStatus @default(pending)
+  failureMessage        String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([stripePaymentIntentId])
+  @@map("payments")
+}
+
+// ---------------------------------------------------------------------------
+// User
+// ---------------------------------------------------------------------------
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String
+  firstName       String?
+  lastName        String?
+  role            UserRole  @default(staff)
+  isActive        Boolean   @default(true)
+  resetToken      String?
+  resetTokenExpiry DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([email])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// SiteConfig
+// ---------------------------------------------------------------------------
+
+model SiteConfig {
+  id                              String   @id @default(cuid())
+  singleton                       Boolean  @unique @default(true)
+  restaurantName                  String
+  address                         String?
+  phone                           String?
+  email                           String?
+  taxRatePercent                  Decimal  @db.Decimal(6, 4)
+  deliveryFeeInCents              Int      @default(399)
+  freeDeliveryThresholdInCents    Int      @default(3000)
+  minimumOrderInCents             Int      @default(0)
+  lat                             Float?
+  lng                             Float?
+  socialLinks                     Json?
+  deliveryLinks                   Json?
+  businessHours                   Json?
+  isAcceptingOrders               Boolean  @default(true)
+  isAcceptingDelivery             Boolean  @default(true)
+  isAcceptingPickup               Boolean  @default(true)
+  announcementText                String?
+  announcementActive              Boolean  @default(false)
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+
+  @@map("site_config")
+}

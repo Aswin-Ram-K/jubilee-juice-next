@@ -1,26 +1,229 @@
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@700,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-cream: #FAF7F2;
+  --color-charcoal: #1A1A1A;
+  --color-orange: #E8722A;
+  --color-sage: #7A9E7E;
+  --color-sand: #E8DDD3;
+  --color-espresso: #2C2420;
+
+  --font-satoshi: 'Satoshi', sans-serif;
+  --font-dm-sans: 'DM Sans', sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ─── Dark Mode Token Overrides ──────────────────────────────── */
+/* Swapping CSS custom properties means every bg-cream, text-charcoal,
+   border-sand etc. across 40+ components automatically flips colors.
+   No individual dark: prefixes needed on components. */
+html.dark {
+  --color-cream: #121212;
+  --color-charcoal: #F5F5F5;
+  --color-orange: #F09040;
+  --color-sage: #8FB893;
+  --color-sand: #2A2420;
+  --color-espresso: #0A0A0A;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Cards and surfaces that use bg-white need a dark equivalent */
+html.dark .bg-white {
+  background-color: #1E1E1E !important;
+}
+
+/* Smooth transition when toggling */
+html {
+  scroll-behavior: smooth;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'DM Sans', sans-serif;
+  background-color: #FAF7F2;
+  color: #1A1A1A;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+html.dark body {
+  background-color: #121212;
+  color: #F5F5F5;
+}
+
+/* Dark mode fixes for inline styles that can't use tokens */
+html.dark [style*="background-color: #FAF7F2"] {
+  background-color: #121212 !important;
+}
+html.dark [style*="background-color: rgba(44, 36, 32"] {
+  background-color: rgba(10, 10, 10, 0.97) !important;
+}
+html.dark [style*="border-color: #E8DDD3"] {
+  border-color: #2A2420 !important;
+}
+
+/* Scroll animation base states */
+[data-animate] {
+  opacity: 0;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  transition-delay: var(--delay, 0ms);
+}
+
+[data-animate="fade-up"] {
+  transform: translateY(32px);
+}
+
+[data-animate="fade-in"] {
+  transform: none;
+}
+
+[data-animate="slide-left"] {
+  transform: translateX(-48px);
+}
+
+[data-animate="slide-right"] {
+  transform: translateX(48px);
+}
+
+[data-animate].is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Hero entrance animations */
+@keyframes hero-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-animate {
+  opacity: 0;
+  animation: hero-slide-up 0.8s ease-out forwards;
+}
+
+.hero-delay-1 { animation-delay: 0.1s; }
+.hero-delay-2 { animation-delay: 0.3s; }
+.hero-delay-3 { animation-delay: 0.5s; }
+.hero-delay-4 { animation-delay: 0.7s; }
+
+/* Scroll indicator bounce */
+@keyframes bounce-down {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
+.scroll-indicator {
+  animation: bounce-down 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-animate {
+    opacity: 1;
+    animation: none;
+  }
+  .scroll-indicator {
+    animation: none;
+  }
+  [data-animate] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ─── Dynamic Micro-Interactions ─────────────────────────────── */
+
+/* Card magnification on hover — spring easing for satisfying pop */
+.card-hover {
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease;
+}
+.card-hover:hover {
+  transform: scale(1.03);
+  box-shadow: 0 20px 40px -12px rgba(0,0,0,0.15);
+}
+
+/* Subtle lift for secondary interactive elements */
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -8px rgba(0,0,0,0.12);
+}
+
+/* Stagger children — grid items animate in sequentially */
+.stagger-children > * {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.stagger-children.is-visible > * {
+  opacity: 1;
+  transform: translateY(0);
+}
+.stagger-children.is-visible > *:nth-child(1) { transition-delay: 0ms; }
+.stagger-children.is-visible > *:nth-child(2) { transition-delay: 80ms; }
+.stagger-children.is-visible > *:nth-child(3) { transition-delay: 160ms; }
+.stagger-children.is-visible > *:nth-child(4) { transition-delay: 240ms; }
+.stagger-children.is-visible > *:nth-child(5) { transition-delay: 320ms; }
+.stagger-children.is-visible > *:nth-child(6) { transition-delay: 400ms; }
+.stagger-children.is-visible > *:nth-child(7) { transition-delay: 480ms; }
+.stagger-children.is-visible > *:nth-child(8) { transition-delay: 560ms; }
+
+/* Image zoom on hover — contained overflow with spring scale */
+.img-zoom {
+  overflow: hidden;
+}
+.img-zoom img {
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.img-zoom:hover img {
+  transform: scale(1.08);
+}
+
+/* Text reveal with blur */
+@keyframes text-reveal {
+  from { opacity: 0; transform: translateY(24px); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+.text-reveal {
+  opacity: 0;
+  animation: text-reveal 0.8s ease-out forwards;
+}
+.text-reveal-delay-1 { animation-delay: 0.1s; }
+.text-reveal-delay-2 { animation-delay: 0.25s; }
+.text-reveal-delay-3 { animation-delay: 0.4s; }
+
+/* Gentle pulse for primary CTAs */
+@keyframes gentle-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 114, 42, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(232, 114, 42, 0); }
+}
+.cta-pulse {
+  animation: gentle-pulse 2.5s ease-in-out infinite;
+}
+
+/* Floating effect — gentle vertical oscillation */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.float-slow {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Reduced motion — disable all micro-interactions */
+@media (prefers-reduced-motion: reduce) {
+  .card-hover:hover,
+  .hover-lift:hover { transform: none; box-shadow: none; }
+  .stagger-children > * { opacity: 1; transform: none; transition: none; }
+  .img-zoom:hover img { transform: none; }
+  .text-reveal { opacity: 1; animation: none; filter: none; }
+  .cta-pulse { animation: none; }
+  .float-slow { animation: none; }
 }
