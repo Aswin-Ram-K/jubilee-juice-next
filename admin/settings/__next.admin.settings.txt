@@ -2,4 +2,4 @@
 2:I[80695,["/jubilee-juice-next/_next/static/chunks/0x-q33xs7xz18.js","/jubilee-juice-next/_next/static/chunks/0xcp_29tj6557.js"],"default"]
 3:I[84878,["/jubilee-juice-next/_next/static/chunks/0x-q33xs7xz18.js","/jubilee-juice-next/_next/static/chunks/0xcp_29tj6557.js"],"default"]
 4:[]
-0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"2c3bE_8_Kzzwt3dBTj-bf"}
+0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"dzpHqEzHb4M3yKYmF6JUC"}
